@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>우리반 짝꿍 생성기</title>
+    <style>
+        :root {
+            --primary-color: #4F46E5;
+            --bg-color: #F3F4F6;
+            --card-bg: #ffffff;
+            --text-color: #1F2937;
+            --male-color: #3B82F6;
+            --female-color: #EC4899;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; }
+        
+        body { background-color: var(--bg-color); color: var(--text-color); display: flex; justify-content: center; min-height: 100vh; padding: 20px; }
+        
+        .container { width: 100%; max-width: 800px; background: var(--card-bg); border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); padding: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+
+        h1 { text-align: center; color: var(--primary-color); font-size: 1.8rem; margin-bottom: 0.5rem; }
+        .subtitle { text-align: center; color: #6B7280; font-size: 0.9rem; margin-top: -1rem; margin-bottom: 1rem; }
+
+        /* Input Section */
+        .input-section { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; background: #F9FAFB; padding: 1rem; border-radius: 12px; border: 1px solid #E5E7EB; }
+        input[type="text"] { flex: 1; padding: 12px; border: 1px solid #D1D5DB; border-radius: 8px; outline: none; transition: border-color 0.2s; min-width: 150px; }
+        input[type="text"]:focus { border-color: var(--primary-color); }
+        
+        .gender-select { display: flex; gap: 10px; }
+        .gender-label { cursor: pointer; padding: 8px 16px; border-radius: 8px; border: 1px solid #D1D5DB; background: white; user-select: none; transition: all 0.2s; display: flex; align-items: center; gap: 5px; }
+        .gender-label:hover { background: #F3F4F6; }
+        input[type="radio"] { display: none; }
+        
+        input[type="radio"]:checked + .gender-label[for="male"] { background: var(--male-color); color: white; border-color: var(--male-color); }
+        input[type="radio"]:checked + .gender-label[for="female"] { background: var(--female-color); color: white; border-color: var(--female-color); }
+
+        button.add-btn { background: var(--primary-color); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: background 0.2s; }
+        button.add-btn:hover { background: #4338CA; }
+
+        /* Student List */
+        .student-list-container { max-height: 200px; overflow-y: auto; margin-bottom: 1rem; }
+        .student-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+        .student-tag { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 0.9rem; background: #E5E7EB; color: var(--text-color); }
+        .student-tag.male { background: #DBEAFE; color: #1E40AF; }
+        .student-tag.female { background: #FCE7F3; color: #9D174D; }
+        .delete-x { cursor: pointer; font-weight: bold; opacity: 0.6; }
+        .delete-x:hover { opacity: 1; }
+
+        /* Toggle Switch (Checkbox Option) */
+        .controls { display: flex; flex-direction: column; gap: 1rem; border-top: 1px solid #E5E7EB; padding-top: 1.5rem; }
+        
+        .option-wrapper { display: flex; justify-content: center; align-items: center; gap: 12px; background: #F3F4F6; padding: 10px; border-radius: 10px; width: fit-content; margin: 0 auto; }
+        .switch { position: relative; display: inline-block; width: 50px; height: 26px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--primary-color); }
+        input:checked + .slider:before { transform: translateX(24px); }
+        
+        .option-text { font-size: 0.95rem; font-weight: 600; color: #4B5563; cursor: pointer; }
+        input:checked ~ .option-text { color: var(--primary-color); }
+
+        /* Action Buttons */
+        .action-buttons { display: flex; gap: 10px; margin-top: 10px; }
+        .btn { flex: 1; padding: 14px; border: none; border-radius: 10px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: transform 0.1s; }
+        .btn:active { transform: scale(0.98); }
+        .btn-generate { background: var(--primary-color); color: white; box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3); }
+        .btn-reset { background: #EF4444; color: white; flex: 0.3; }
+
+        /* Results */
+        .result-section { margin-top: 1rem; }
+        .pair-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+        .pair-card { background: #F8FAFC; border: 1px solid #E2E8F0; padding: 1rem; border-radius: 12px; text-align: center; display: flex; justify-content: center; align-items: center; gap: 10px; animation: fadeIn 0.5s ease; }
+        .pair-card.leftover { background: #FFFBEB; border-color: #FCD34D; flex-direction: column; }
+        .pair-card span { font-weight: 600; }
+        
+        .male-text { color: var(--male-color); }
+        .female-text { color: var(--female-color); }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        @media (max-width: 600px) {
+            .input-section { flex-direction: column; align-items: stretch; }
+            .gender-select { justify-content: center; }
+            .pair-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🎓 우리반 짝꿍 생성기</h1>
+    <p class="subtitle">이름과 성별을 입력하고 짝을 만들어보세요!</p>
+
+    <!-- 입력 영역 -->
+    <div class="input-section">
+        <input type="text" id="nameInput" placeholder="이름 입력 (Enter로 추가)" autocomplete="off">
+        <div class="gender-select">
+            <input type="radio" name="gender" id="male" value="male" checked>
+            <label class="gender-label" for="male">남학생 👦</label>
+            
+            <input type="radio" name="gender" id="female" value="female">
+            <label class="gender-label" for="female">여학생 👧</label>
+        </div>
+        <button class="add-btn" onclick="addStudent()">추가</button>
+    </div>
+
+    <!-- 학생 명단 리스트 -->
+    <div class="student-list-container">
+        <div id="studentList" class="student-tags"></div>
+    </div>
+    <div style="text-align: right; font-size: 0.85rem; color: #6B7280;">
+        총 인원: <span id="totalCount">0</span>명
+    </div>
+
+    <!-- 옵션 및 실행 버튼 -->
+    <div class="controls">
+        <!-- 토글 스위치 옵션 -->
+        <div class="option-wrapper" onclick="toggleCheckbox()">
+            <span style="font-size:0.9rem;">🎲 랜덤</span>
+            <label class="switch">
+                <input type="checkbox" id="mixOption">
+                <span class="slider round"></span>
+            </label>
+            <span class="option-text">👫 남녀 짝 우선</span>
+        </div>
+
+        <div class="action-buttons">
+            <button class="btn btn-generate" onclick="generatePairs()">짝꿍 만들기!</button>
+            <button class="btn btn-reset" onclick="resetAll()">초기화</button>
+        </div>
+    </div>
+
+    <!-- 결과 영역 -->
+    <div id="resultSection" class="result-section">
+        <div id="pairList" class="pair-grid"></div>
+    </div>
+</div>
+
+<script>
+    // State
+    let students = JSON.parse(localStorage.getItem('students')) || [];
+
+    // Elements
+    const nameInput = document.getElementById('nameInput');
+    const studentListEl = document.getElementById('studentList');
+    const totalCountEl = document.getElementById('totalCount');
+    const pairListEl = document.getElementById('pairList');
+    const mixOptionCheck = document.getElementById('mixOption');
+
+    // Init
+    window.onload = () => {
+        renderStudentList();
+        nameInput.focus();
+    };
+
+    nameInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') addStudent();
+    });
+
+    // 토글 라벨 클릭 시 체크박스 연동
+    function toggleCheckbox() {
+        // 이벤트 버블링 방지 (이미 체크박스나 슬라이더를 눌렀을 땐 실행 X)
+        if (event.target.tagName !== 'INPUT' && event.target.className !== 'slider round') {
+             mixOptionCheck.checked = !mixOptionCheck.checked;
+        }
+    }
+
+    function addStudent() {
+        const name = nameInput.value.trim();
+        if (!name) {
+            alert('이름을 입력해주세요.');
+            return;
+        }
+        const gender = document.querySelector('input[name="gender"]:checked').value;
+        const newStudent = { id: Date.now(), name: name, gender: gender };
+
+        students.push(newStudent);
+        saveAndRender();
+        nameInput.value = '';
+        nameInput.focus();
+    }
+
+    function removeStudent(id) {
+        students = students.filter(s => s.id !== id);
+        saveAndRender();
+    }
+
+    function saveAndRender() {
+        localStorage.setItem('students', JSON.stringify(students));
+        renderStudentList();
+    }
+
+    function renderStudentList() {
+        studentListEl.innerHTML = '';
+        students.forEach(student => {
+            const tag = document.createElement('div');
+            tag.className = `student-tag ${student.gender}`;
+            tag.innerHTML = `${student.name} ${student.gender === 'male' ? '👦' : '👧'}<span class="delete-x" onclick="removeStudent(${student.id})">×</span>`;
+            studentListEl.appendChild(tag);
+        });
+        totalCountEl.innerText = students.length;
+    }
+
+    function resetAll() {
+        if(confirm('모든 학생 명단을 삭제하시겠습니까?')) {
+            students = [];
+            pairListEl.innerHTML = '';
+            saveAndRender();
+        }
+    }
+
+    function shuffle(array) {
+        const arr = [...array];
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+
+    /**
+     * 짝 생성 핵심 로직
+     */
+    function generatePairs() {
+        if (students.length < 2) {
+            alert('최소 2명의 학생이 필요합니다.');
+            return;
+        }
+
+        pairListEl.innerHTML = '';
+        const isMixedMode = mixOptionCheck.checked; // 체크박스 확인
+        
+        let pairs = [];
+        let leftovers = [];
+
+        if (isMixedMode) {
+            // 1. 남녀 각각 분리 후 셔플
+            const males = shuffle(students.filter(s => s.gender === 'male'));
+            const females = shuffle(students.filter(s => s.gender === 'female'));
+            
+            // 2. 가능한 1:1 매칭
+            const minLen = Math.min(males.length, females.length);
+            for (let i = 0; i < minLen; i++) {
+                pairs.push([males[i], females[i]]);
+            }
+
+            // 3. 남은 인원들 통합
+            let remaining = [
+                ...males.slice(minLen),
+                ...females.slice(minLen)
+            ];
+
+            // 4. 남은 인원 셔플 후 짝짓기
+            remaining = shuffle(remaining);
+            while (remaining.length >= 2) {
+                pairs.push([remaining.pop(), remaining.pop()]);
+            }
+
+            if (remaining.length > 0) leftovers = remaining;
+
+        } else {
+            // 랜덤 모드: 전체 섞어서 2명씩
+            let pool = shuffle(students);
+            while (pool.length >= 2) {
+                pairs.push([pool.pop(), pool.pop()]);
+            }
+            if (pool.length > 0) leftovers = pool;
+        }
+
+        renderPairs(pairs, leftovers);
+    }
+
+    function renderPairs(pairs, leftovers) {
+        let html = '';
+        pairs.forEach((pair, index) => {
+            html += `
+                <div class="pair-card">
+                    <div style="font-size:1.1rem; color:#6B7280; margin-bottom:2px;">${index + 1}조</div>
+                    <div>
+                        ${formatName(pair[0])}
+                        <span style="color:#9CA3AF; margin:0 5px;">&</span> 
+                        ${formatName(pair[1])}
+                    </div>
+                </div>
+            `;
+        });
+
+        if (leftovers.length > 0) {
+            html += `
+                <div class="pair-card leftover">
+                    <div style="font-size:1.1rem; color:#D97706;">대기</div>
+                    <div>${formatName(leftovers[0])}</div>
+                </div>
+            `;
+        }
+
+        pairListEl.innerHTML = html;
+        setTimeout(() => {
+            document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+    }
+
+    function formatName(student) {
+        const colorClass = student.gender === 'male' ? 'male-text' : 'female-text';
+        return `<span class="${colorClass}">${student.name}</span>`;
+    }
+</script>
+
+</body>
+</html>
