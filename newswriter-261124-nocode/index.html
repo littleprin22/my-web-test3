@@ -63,6 +63,83 @@ async function teacherView(no){try{let r=await call({action:'teacherOne',teacher
 async function teacherReset(no){if(!confirm(no+'번 학생을 새 기기에 연결할까요? 기존 기기의 접속은 해제되지만 학생 글은 그대로 보존됩니다.'))return;try{const x=await call({action:'teacherReset',teacherPass:$('teacherKey').value.trim(),studentNo:no});const person=teacherRecords.find(s=>Number(s.student_no)===Number(no));const name=person?.student_name||'';const link=location.origin+location.pathname+'#connect='+encodeURIComponent(JSON.stringify({no,name,code:x.newCode}));let area=document.createElement('div');area.className='teacher-content';let label=document.createElement('p');label.textContent=no+'번 학생의 새 기기 연결 링크입니다. 해당 학생에게만 개별적으로 전달하세요.';let linkText=document.createElement('textarea');linkText.readOnly=true;linkText.value=link;linkText.style.width='100%';linkText.rows=3;let copy=document.createElement('button');copy.textContent='학생에게 보낼 연결 링크 복사';copy.onclick=async()=>{try{await navigator.clipboard.writeText(link);alert('링크를 복사했습니다. 학생에게만 전달해 주세요.')}catch{linkText.focus();linkText.select();alert('링크를 선택했습니다. 복사해 학생에게만 전달해 주세요.')}};area.append(label,linkText,copy);$('teacherDetail').append(area)}catch(e){notice('teacherMsg','새 기기 연결 실패: '+e.message,true)}}
 $('teacherOpen').onclick=teacherLoad;$('teacherReload').onclick=teacherLoad;$('teacherExport').onclick=()=>{if(!teacherRecords.length){alert('제출 현황을 먼저 조회하세요.');return}const header='번호,이름,상태,저장시각,제출시각',rows=teacherRecords.map(v=>[v.student_no,v.student_name,v.status,v.last_saved_at||'',v.submitted_at||''].map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(','));let blob=new Blob(['\ufeff'+[header,...rows].join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download='동탄초_기사문_제출현황.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000)};
 const sharedJoin=new URLSearchParams(location.hash.slice(1)).get('connect');if(sharedJoin&&new URLSearchParams(location.search).get('mode')!=='teacher'){history.replaceState(null,'',location.pathname+location.search);try{const s=JSON.parse(sharedJoin);if(!Number.isInteger(Number(s.no))||!s.name||!s.code)throw Error('잘못된 연결 링크');$('number').value=s.no;$('name').value=s.name;call({action:'load',studentNo:s.no,studentCode:s.code}).then(r=>{const account={no:Number(s.no),name:s.name,code:s.code};localStorage.setItem(sessionKey,JSON.stringify(account));enterApp(account,r.record)}).catch(e=>notice('loginMsg','새 기기 연결 실패: '+e.message+' · 선생님께 다시 연결을 요청하세요.',true))}catch(e){notice('loginMsg','새 기기 연결 주소가 올바르지 않아요.',true)}}else{try{let s=JSON.parse(localStorage.getItem(sessionKey));if(s?.no&&s?.code&&new URLSearchParams(location.search).get('mode')!=='teacher'){$('number').value=s.no;$('name').value=s.name;call({action:'load',studentNo:s.no,studentCode:s.code}).then(r=>enterApp(s,r.record)).catch(()=>notice('loginMsg','이전에 작성한 계정입니다. 기기 접속 정보를 확인할 수 없다면 선생님께 새 기기 연결을 요청하세요.',true))}}catch{}}
+
+// Revision room: original article remains read-only. Never embed pupil-specific feedback in source.
+const REVIEW_API=API.replace("grade6-newsroom-261124","grade6-newsroom-revision-261127");
+const rubric=["관심을 끌 만한 기삿거리","흥미를 끄는 제목","이해하기 쉬운 본문","독자의 이해를 돕는 자료"];
+const make=(tag,txt,cls)=>{const el=document.createElement(tag);if(txt!==undefined)el.textContent=txt;if(cls)el.className=cls;return el};
+const button=(label,fn,cls)=>{const b=make("button",label,cls);b.type="button";b.onclick=fn;return b};
+async function reviewCall(payload){const res=await fetch(REVIEW_API,{method:"POST",headers:{"Content-Type":"application/json",apikey:KEY},body:JSON.stringify(payload)});const v=await res.json().catch(()=>({}));if(!res.ok||!v.ok)throw Error(v.error||"고쳐쓰기 서버 연결 실패");return v.record}
+let roomToken=0;
+function installRoom(){
+ const old=$("revisionRoom");if(old)old.remove();
+ if(!session||!submitted)return;
+ const root=make("section",undefined,"card panel");root.id="revisionRoom";$("student").append(root);
+ root.append(make("h2","어린왕자 뉴스룸 · 기사문 고쳐쓰기"),make("p","교과서 247쪽을 참고해 나의 기사문을 더 좋은 글로 완성해요. 처음 제출한 글과 사진은 그대로 남아요."));
+ const msg=make("p","","notice");root.append(msg);
+ const launch=button("나의 맞춤형 편집실 열기",async()=>{
+ const token=++roomToken;launch.disabled=true;msg.textContent="피드백을 불러오는 중…";
+ try{
+ const credential={studentNo:session.no,studentCode:session.code};
+ const rec=await reviewCall({action:"load",...credential});
+ if(token!==roomToken)return;
+ if(!rec){msg.textContent="선생님이 피드백을 준비 중이에요. 잠시 뒤 다시 확인하세요.";return}
+ renderRevision(root,rec,credential);
+ }catch(e){msg.textContent=e.message}finally{launch.disabled=false}
+ },"primary");root.append(launch);
+}
+function renderRevision(root,rec,credential){
+ root.replaceChildren(make("h2","나의 기사문 고쳐쓰기"),make("p","처음 제출한 글은 변경되지 않아요. 수정할 부분을 직접 고쳐 보세요."));
+ const f=rec.feedback||{};
+ const ratings=make("div",undefined,"notice good");
+ rubric.forEach((s,i)=>{const n=f.ratings?.[i];ratings.append(make("p",s+" : "+(n==null?"교사 확인 필요":"●".repeat(n)+" · "+["","보통임","잘함","매우 잘함"][n])))});
+ root.append(ratings,make("h3","잘한 점"),make("p",f.praise||""));
+ const tasks=Array.isArray(f.tasks)?f.tasks:[];
+ for(const t of tasks){const card=make("div",undefined,"notice");card.append(make("strong",(fdefs.find(v=>v.id===t.field)?.name||"본문")+" 고쳐쓰기"),make("p",t.advice));let step=0;const hints=make("div");const b=button("힌트 보기",()=>{const h=t.hints?.[step];if(h){step++;hints.append(make("p",step+"단계 · "+h))}if(step>=(t.hints?.length||0))b.disabled=true});if(t.hints?.length)card.append(b,hints);root.append(card)}
+ const inputs={};let version=rec.version,done=rec.status==="submitted",busy=false,timer=null,changed=false;
+ const inkOnly=fdefs.some(d=>article.fields[d.id]?.ink&&!article.fields[d.id]?.text);
+ if(inkOnly)root.append(make("p","스마트펜 원본은 기존 신문에서 확인할 수 있어요. 고쳐쓰기는 키보드로 옮겨 작성하세요.","notice"));
+ for(const d of fdefs){const label=make("h3",d.name),row=make("div",undefined,"input-grid"),left=make("div"),right=make("div"),p=make("p",article.fields[d.id]?.text||"작성한 글 없음"),input=make("textarea");
+ p.style.whiteSpace="pre-wrap";left.append(make("strong","처음 쓴 글"),p);putInk(left,article.fields[d.id]?.ink);
+ input.value=rec.revised_fields?.[d.id]??article.fields[d.id]?.text??"";input.disabled=done;input.setAttribute("aria-label",d.name+" 고쳐 쓴 글");right.append(make("strong","고쳐 쓴 글"),input);row.append(left,right);root.append(label,row);inputs[d.id]=input}
+ const reflection=make("textarea");reflection.value=rec.reflection||"";reflection.disabled=done;reflection.placeholder="무엇을 왜 고쳤나요?";root.append(make("h3","고쳐 쓴 이유"),reflection);
+ const status=make("p",done?"고쳐쓰기 제출 완료 · 서버 기록 확인됨":"수정 내용을 저장해 주세요.","notice");
+ const controls=make("div",undefined,"actions");root.append(controls,status);
+ const snapshot=()=>Object.fromEntries(fdefs.map(d=>[d.id,inputs[d.id].value]));
+ const save=async(final=false)=>{
+ if(done||busy)return;clearTimeout(timer);if(!changed&&!final)return;
+ const fields=snapshot(),reason=reflection.value;busy=true;saveBtn.disabled=true;submitBtn.disabled=true;status.textContent="서버에 저장 중…";
+ try{const next=await reviewCall({action:final?"submit":"save",...credential,version,fields,reflection:reason});version=next.version;done=next.status==="submitted";changed=JSON.stringify(fields)!==JSON.stringify(snapshot())||reason!==reflection.value;status.textContent=done?"고쳐쓰기 제출 완료 · 서버 기록 확인됨":"서버 저장 완료";if(done){Object.values(inputs).forEach(i=>i.disabled=true);reflection.disabled=true}}
+ catch(e){changed=true;status.textContent="저장 실패 · "+e.message+" · 백업을 받아 주세요."}
+ finally{busy=false;saveBtn.disabled=done;submitBtn.disabled=done;if(changed&&!done&&status.textContent==="서버 저장 완료")timer=setTimeout(()=>save(false),700)}
+ };
+ const onChange=()=>{changed=true;status.textContent="수정 중 · 자동 저장 예정";clearTimeout(timer);timer=setTimeout(()=>save(false),1500)};
+ Object.values(inputs).forEach(i=>i.oninput=onChange);reflection.oninput=onChange;
+ const saveBtn=button("수정본 저장",()=>save(false),"primary"),submitBtn=button("고쳐쓰기 최종 제출",()=>{if(confirm("고쳐 쓴 기사문을 최종 제출할까요?"))save(true)},"primary");
+ saveBtn.disabled=submitBtn.disabled=done;controls.append(saveBtn,button("수정본 백업",()=>{const blob=new Blob([JSON.stringify({fields:snapshot(),reflection:reflection.value},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="기사문_고쳐쓰기_백업.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}),submitBtn);
+}
+const originalEnterApp=enterApp;
+enterApp=function(s,rec){roomToken++;originalEnterApp(s,rec);installRoom()};
+const originalSave=save;
+save=async function(final){const ok=await originalSave(final);if(ok&&final&&submitted)installRoom();return ok};
+const originalTeacherView=teacherView;
+let teacherRoomToken=0;
+teacherView=async function(no){
+ const token=++teacherRoomToken;await originalTeacherView(no);if(token!==teacherRoomToken)return;
+ const root=make("section",undefined,"card panel");$("teacherDetail").append(root);root.append(make("h3","교과서 247쪽 · 개별 고쳐쓰기 피드백"));
+ const msg=make("p","피드백을 조회하는 중…","notice");root.append(msg);
+ const credential={studentNo:no,teacherPass:$("teacherKey").value.trim()};
+ try{const row=await reviewCall({action:"teacherLoad",...credential});if(token!==teacherRoomToken)return;msg.textContent=row?.published?"학생 공개 중":"교사 확인 후 공개할 수 있습니다.";
+ const f=row?.feedback||{},ratingInputs=[];
+ rubric.forEach((name,i)=>{const label=make("label",name+" ");const select=make("select");["미확인","보통임","잘함","매우 잘함"].forEach((t,v)=>{const opt=make("option",t);opt.value=String(v);select.append(opt)});select.value=String(f.ratings?.[i]||0);label.append(select);root.append(make("p"));root.append(label);ratingInputs.push(select)});
+ root.append(make("h3","잘한 점"));const praise=make("textarea");praise.value=f.praise||"";root.append(praise);
+ const tasks=[];for(let i=0;i<3;i++){const task=f.tasks?.[i]||{},select=make("select");for(const d of fdefs){const opt=make("option",d.name);opt.value=d.id;select.append(opt)}select.value=task.field||"body1";const advice=make("textarea");advice.placeholder="구체적인 개선 조언";advice.value=task.advice||"";root.append(make("h3","개선 과제 "+(i+1)),select,advice);const hints=[];for(let j=0;j<3;j++){const h=make("textarea");h.placeholder=(j+1)+"단계 힌트";h.value=task.hints?.[j]||"";root.append(h);hints.push(h)}tasks.push({select,advice,hints})}
+ const submit=async(published)=>{try{const feedback={ratings:ratingInputs.map(i=>Number(i.value)||null),praise:praise.value,tasks:tasks.filter(t=>t.advice.value.trim()).map(t=>({field:t.select.value,advice:t.advice.value,hints:t.hints.map(h=>h.value).filter(Boolean)}))};await reviewCall({action:"teacherSave",...credential,feedback,published});msg.textContent=published?"학생 공개 완료":"교사 검토용 저장 완료 (비공개)"}catch(e){msg.textContent=e.message}};
+ root.append(button("비공개 저장",()=>submit(false)),button("학생에게 공개",()=>submit(true),"primary"));
+ if(row?.version){root.append(make("h3","고쳐쓰기 현황 · "+(row.status==="submitted"?"제출 완료":"작성 중")));for(const d of fdefs)root.append(make("strong",d.name),make("p",row.revised_fields?.[d.id]||""));root.append(make("strong","고쳐 쓴 이유"),make("p",row.reflection||""))}
+ }catch(e){msg.textContent=e.message}
+};
+
 window.addEventListener('beforeunload',()=>{if(session)store()});
 })();
 </script></body></html>
