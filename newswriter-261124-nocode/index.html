@@ -98,7 +98,7 @@ const source=()=>["body1","body2","body3"].map(k=>inputs[k]?.value||"").filter(B
 const split=()=>source().split(/(?<=[.!?。！？])\s+|\n+/u).map(x=>x.trim()).filter(Boolean);let lines=[],cuts=new Set(),original="";
 const render=()=>{area.replaceChildren();if(!lines.length){area.append(make("p","먼저 본문에 글을 작성하세요."));return}lines.forEach((s,i)=>{if(i){const b=button(cuts.has(i)?"새 문단 시작":"여기서 나누기",()=>{cuts.has(i)?cuts.delete(i):cuts.add(i);render()},"nr-break");b.setAttribute("aria-pressed",String(cuts.has(i)));area.append(b)}area.append(make("div",s,"nr-sentence"+([...cuts].filter(k=>k<=i).length%2?" alt":"")))})};
 const start=button("현재 본문 불러오기",()=>{original=source();lines=split();cuts.clear();render();message.textContent="문장의 중심이 달라지는 곳을 직접 선택해 보세요. 문단 개수는 정해져 있지 않아요."},"primary");
-const apply=button("내가 나눈 문단을 수정본에 반영",()=>{if(!lines.length)return;if(source()!==original){message.textContent="본문이 바뀌었어요. 현재 본문을 다시 불러오세요.";return}const groups=[];let part=[];lines.forEach((s,i)=>{if(cuts.has(i)&&part.length){groups.push(part.join(" "));part=[]}part.push(s)});if(part.length)groups.push(part.join(" "));if(!confirm("선택한 문단 구성을 수정본 본문에 반영할까요?"))return;["body1","body2","body3"].forEach((k,i)=>{inputs[k].value=i===2?groups.slice(2).join("\n\n"):groups[i]||"";inputs[k].dispatchEvent(new Event("input"))});message.textContent="문단 "+groups.length+"개로 정리했어요. 각 문단의 중심 내용을 한마디로 말해 보세요.";original=source();},"primary");mod.append(start,apply);root.append(mod);
+const apply=button("내가 나눈 문단을 수정본에 반영",()=>{if(!lines.length)return;if(["body1","body2","body3"].some(k=>inputs[k].disabled)){message.textContent="제출 또는 저장 중에는 문단을 변경할 수 없어요.";return}if(source()!==original){message.textContent="본문이 바뀌었어요. 현재 본문을 다시 불러오세요.";return}const groups=[];let part=[];lines.forEach((s,i)=>{if(cuts.has(i)&&part.length){groups.push(part.join(" "));part=[]}part.push(s)});if(part.length)groups.push(part.join(" "));if(!confirm("선택한 문단 구성을 수정본 본문에 반영할까요?"))return;["body1","body2","body3"].forEach((k,i)=>{inputs[k].value=i===2?groups.slice(2).join("\n\n"):groups[i]||"";inputs[k].dispatchEvent(new Event("input"))});message.textContent="문단 "+groups.length+"개로 정리했어요. 각 문단의 중심 내용을 한마디로 말해 보세요.";original=source();},"primary");mod.append(start,apply);root.append(mod);
 }
 function nrChecklist(root){const mod=nrModule("마지막 기자 점검","교과서 247쪽의 네 가지 기준을 스스로 확인하고, 사실과 문단도 한 번 더 점검하세요.");const boxes=[...rubric,"날짜·장소·수치·인용을 실제 자료로 확인했어요.","같은 중심 내용끼리 묶고 내용이 바뀌면 문단을 나눴어요.","사진이나 그림을 활용했다면 출처를 확인했어요."].map(s=>{const l=make("label"),cb=make("input");cb.type="checkbox";l.style.display="block";l.append(cb,document.createTextNode(" "+s));mod.append(l);return cb});root.append(mod);return boxes}
 
@@ -123,13 +123,13 @@ function nrVideo(root){
  const backup=make("details");backup.append(make("summary","영상 재생이 안 될 때 · 핵심 복습"),make("p","표제: 기사 내용을 짧고 명확하게 나타내요."),make("p","전문: 누가, 언제, 어디서, 무엇을, 어떻게, 왜 했는지 핵심을 요약해요."),make("p","본문: 중심 내용이 달라지는 곳에서 문단을 나누고 확인한 사실을 자세히 설명해요."));card.append(backup);root.append(card);
 }
 
-function nrEntry(){$("newsroomMission")?.remove();if(!session)return;const root=make("section",undefined,"nr-banner");root.id="newsroomMission";$("student").prepend(root);const started=fdefs.some(d=>article.fields[d.id]?.text?.trim()||article.fields[d.id]?.ink);root.append(make("h2",submitted?"어린왕자 뉴스룸 · 나의 편집실":started?"지난번 기사문 이어 쓰기":"오늘은 어린이 취재 기자!"),make("p",submitted?"첫 기사문을 제출했어요. 이제 독자의 눈으로 읽고 고쳐 써 봐요.":started?"저장된 글을 이어서 완성한 뒤 제출하세요.":"취재 메모부터 하나씩 완성해 보세요."));nrTrack(root,submitted?2:started?1:0);nrVideo(root);if(submitted){root.append(button("맞춤형 고쳐쓰기 시작",()=>{$("revisionRoom")?.scrollIntoView({behavior:"smooth"});$("revisionRoom")?.querySelector("button")?.click()},"primary"))}else{const details=make("details");details.append(make("summary","글쓰기 도움 및 문단 미션 (필요할 때 열기)"));nrWritingHelp(details);nrTrainer(details);root.append(details)}}
+function nrEntry(){$("newsroomMission")?.remove();if(!session)return;const root=make("section",undefined,"nr-banner");root.id="newsroomMission";$("student").querySelector("main").prepend(root);const started=fdefs.some(d=>article.fields[d.id]?.text?.trim()||article.fields[d.id]?.ink);root.append(make("h2",submitted?"어린왕자 뉴스룸 · 나의 편집실":started?"지난번 기사문 이어 쓰기":"오늘은 어린이 취재 기자!"),make("p",submitted?"첫 기사문을 제출했어요. 이제 독자의 눈으로 읽고 고쳐 써 봐요.":started?"저장된 글을 이어서 완성한 뒤 제출하세요.":"취재 메모부터 하나씩 완성해 보세요."));nrTrack(root,submitted?2:started?1:0);nrVideo(root);if(submitted){root.append(button("맞춤형 고쳐쓰기 시작",()=>{$("revisionRoom")?.scrollIntoView({behavior:"smooth"});$("revisionRoom")?.querySelector("button")?.click()},"primary"))}else{const details=make("details");details.append(make("summary","글쓰기 도움 및 문단 미션 (필요할 때 열기)"));nrWritingHelp(details);nrTrainer(details);root.append(details)}}
 
 let roomToken=0;
 function installRoom(){
  const old=$("revisionRoom");if(old)old.remove();
  if(!session||!submitted)return;
- const root=make("section",undefined,"card panel");root.id="revisionRoom";$("student").append(root);
+ const root=make("section",undefined,"card panel");root.id="revisionRoom";$("student").querySelector("main").append(root);
  root.append(make("h2","어린왕자 뉴스룸 · 기사문 고쳐쓰기"),make("p","교과서 247쪽을 참고해 나의 기사문을 더 좋은 글로 완성해요. 처음 제출한 글과 사진은 그대로 남아요."));
  const msg=make("p","","notice");root.append(msg);
  const launch=button("나의 맞춤형 편집실 열기",async()=>{
@@ -137,7 +137,7 @@ function installRoom(){
  try{
  const credential={studentNo:session.no,studentCode:session.code};
  const rec=await reviewCall({action:"load",...credential});
- if(token!==roomToken)return;
+ if(token!==roomToken||session?.no!==credential.studentNo||session?.code!==credential.studentCode)return;
  if(!rec){msg.textContent="선생님이 피드백을 준비 중이에요. 잠시 뒤 다시 확인하세요.";return}
  renderRevision(root,rec,credential);
  }catch(e){msg.textContent=e.message}finally{launch.disabled=false}
@@ -151,36 +151,36 @@ function renderRevision(root,rec,credential){
  root.append(ratings,make("h3","잘한 점"),make("p",f.praise||""));
  const tasks=Array.isArray(f.tasks)?f.tasks:[];
  for(const t of tasks){const card=make("div",undefined,"notice");card.append(make("strong",(fdefs.find(v=>v.id===t.field)?.name||"본문")+" 고쳐쓰기"),make("p",t.advice));let step=0;const hints=make("div");const b=button("힌트 보기",()=>{const h=t.hints?.[step];if(h){step++;hints.append(make("p",step+"단계 · "+h))}if(step>=(t.hints?.length||0))b.disabled=true});if(t.hints?.length)card.append(b,hints);root.append(card)}
- const inputs={};let version=rec.version,done=rec.status==="submitted",busy=false,timer=null,changed=false;
+ const inputs={};let version=rec.version,done=rec.status==="submitted",busy=false,timer=null,changed=false;const owner=()=>session?.no===credential.studentNo&&session?.code===credential.studentCode&&root.isConnected;const localKey="dongtan-newsroom-revision-draft:"+rec.original_id+":"+rec.original_revision;let recovery=null;try{recovery=JSON.parse(localStorage.getItem(localKey)||"null")}catch{};const recoverable=!done&&recovery?.version===version&&recovery?.fields&&typeof recovery.reflection==="string";const conflict=!done&&recovery?.fields&&!recoverable;
  const inkOnly=fdefs.some(d=>article.fields[d.id]?.ink&&!article.fields[d.id]?.text);
  if(inkOnly)root.append(make("p","스마트펜 원본은 기존 신문에서 확인할 수 있어요. 고쳐쓰기는 키보드로 옮겨 작성하세요.","notice"));
  for(const d of fdefs){const label=make("h3",d.name),row=make("div",undefined,"input-grid"),left=make("div"),right=make("div"),p=make("p",article.fields[d.id]?.text||"작성한 글 없음"),input=make("textarea");
  p.style.whiteSpace="pre-wrap";left.append(make("strong","처음 쓴 글"),p);putInk(left,article.fields[d.id]?.ink);
- input.value=rec.revised_fields?.[d.id]??article.fields[d.id]?.text??"";input.disabled=done;input.setAttribute("aria-label",d.name+" 고쳐 쓴 글");right.append(make("strong","고쳐 쓴 글"),input);row.append(left,right);const section=make("section",undefined,"nr-section");section.style.setProperty("--nr-color",nrColors[d.id]);const diff=make("p","","nr-changed");const refresh=()=>{diff.textContent=input.value===(article.fields[d.id]?.text||"")?"원본과 같아요":"수정한 부분이 있어요"};input.addEventListener("input",refresh);refresh();section.append(label,row,diff);root.append(section);inputs[d.id]=input}
- if(!done)nrOwnParagraph(root,inputs);const checklist=nrChecklist(root);const reflection=make("textarea");reflection.value=rec.reflection||"";reflection.disabled=done;reflection.placeholder="무엇을 왜 고쳤나요?";root.append(make("h3","고쳐 쓴 이유"),reflection);
+ input.value=(recoverable?recovery.fields[d.id]:undefined)??rec.revised_fields?.[d.id]??article.fields[d.id]?.text??"";input.disabled=done;input.setAttribute("aria-label",d.name+" 고쳐 쓴 글");right.append(make("strong","고쳐 쓴 글"),input);row.append(left,right);const section=make("section",undefined,"nr-section");section.style.setProperty("--nr-color",nrColors[d.id]);const diff=make("p","","nr-changed");const refresh=()=>{diff.textContent=input.value===(article.fields[d.id]?.text||"")?"원본과 같아요":"수정한 부분이 있어요"};input.addEventListener("input",refresh);refresh();section.append(label,row,diff);root.append(section);inputs[d.id]=input}
+ if(!done)nrOwnParagraph(root,inputs);const checklist=nrChecklist(root);const reflection=make("textarea");reflection.value=recoverable?recovery.reflection:rec.reflection||"";reflection.disabled=done;reflection.placeholder="무엇을 왜 고쳤나요?";root.append(make("h3","고쳐 쓴 이유"),reflection);
  const status=make("p",done?"고쳐쓰기 제출 완료 · 서버 기록 확인됨":"수정 내용을 저장해 주세요.","notice");
  const controls=make("div",undefined,"actions");root.append(controls,status);
- const snapshot=()=>Object.fromEntries(fdefs.map(d=>[d.id,inputs[d.id].value]));
+ const snapshot=()=>Object.fromEntries(fdefs.map(d=>[d.id,inputs[d.id].value]));const keep=()=>{if(!owner()||done)return;try{localStorage.setItem(localKey,JSON.stringify({version,fields:snapshot(),reflection:reflection.value}))}catch(e){status.textContent="기기 임시 저장 실패 · 서버 저장 또는 백업을 이용해 주세요."}};const discard=()=>{try{localStorage.removeItem(localKey)}catch{}};const backup=(data)=>{const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="기사문_고쳐쓰기_백업.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};if(conflict){root.append(make("p","이 기기의 임시 기록과 서버 버전이 달라요. 이전 임시 기록은 백업한 뒤 서버 기록으로 계속할 수 있어요.","notice"),button("이전 임시 수정본 백업",()=>backup(recovery)));}
  const save=async(final=false)=>{
- if(done||busy)return;clearTimeout(timer);if(!changed&&!final)return;
- const fields=snapshot(),reason=reflection.value;busy=true;saveBtn.disabled=true;submitBtn.disabled=true;status.textContent="서버에 저장 중…";
- try{const next=await reviewCall({action:final?"submit":"save",...credential,version,fields,reflection:reason});version=next.version;done=next.status==="submitted";changed=JSON.stringify(fields)!==JSON.stringify(snapshot())||reason!==reflection.value;status.textContent=done?"고쳐쓰기 제출 완료 · 서버 기록 확인됨":"서버 저장 완료";if(done){Object.values(inputs).forEach(i=>i.disabled=true);reflection.disabled=true}}
- catch(e){changed=true;status.textContent="저장 실패 · "+e.message+" · 백업을 받아 주세요."}
- finally{busy=false;saveBtn.disabled=done;submitBtn.disabled=done;if(changed&&!done&&status.textContent==="서버 저장 완료")timer=setTimeout(()=>save(false),700)}
+ if(done||busy||!owner())return;clearTimeout(timer);if(!changed&&!final)return;if(conflict&&!window.confirm("서버와 다른 이전 임시 기록이 있습니다. 먼저 백업했는지 확인하고 현재 수정본을 저장할까요?"))return;
+ const fields=snapshot(),reason=reflection.value;busy=true;saveBtn.disabled=true;submitBtn.disabled=true;if(final){Object.values(inputs).forEach(i=>i.disabled=true);reflection.disabled=true;}status.textContent="서버에 저장 중…";
+ try{const next=await reviewCall({action:final?"submit":"save",...credential,version,fields,reflection:reason});version=next.version;done=next.status==="submitted";changed=JSON.stringify(fields)!==JSON.stringify(snapshot())||reason!==reflection.value;status.textContent=done?"고쳐쓰기 제출 완료 · 서버 기록 확인됨":"서버 저장 완료";if(changed&&!done)keep();else discard();if(done){Object.values(inputs).forEach(i=>i.disabled=true);reflection.disabled=true}}
+ catch(e){changed=true;keep();status.textContent="저장 실패 · "+e.message+" · 기기에 임시 보관하거나 백업해 주세요."}
+ finally{busy=false;saveBtn.disabled=done;submitBtn.disabled=done;if(!done){Object.values(inputs).forEach(i=>i.disabled=false);reflection.disabled=false;}if(changed&&!done&&status.textContent==="서버 저장 완료")timer=setTimeout(()=>save(false),700)}
  };
- const onChange=()=>{changed=true;status.textContent="수정 중 · 자동 저장 예정";clearTimeout(timer);timer=setTimeout(()=>save(false),1500)};
+ const onChange=()=>{if(!owner()||done)return;changed=true;status.textContent="수정 중 · 자동 저장 예정";if(!conflict)keep();clearTimeout(timer);if(!conflict)timer=setTimeout(()=>save(false),1500)};
  Object.values(inputs).forEach(i=>i.oninput=onChange);reflection.oninput=onChange;
  const saveBtn=button("수정본 저장",()=>save(false),"primary"),submitBtn=button("고쳐쓰기 최종 제출",()=>{if(!checklist.every(c=>c.checked)&&!confirm("아직 확인하지 않은 자기 점검 항목이 있어요. 그대로 제출할까요?"))return;if(confirm("고쳐 쓴 기사문을 최종 제출할까요?"))save(true)},"primary");
- saveBtn.disabled=submitBtn.disabled=done;controls.append(saveBtn,button("수정본 백업",()=>{const blob=new Blob([JSON.stringify({fields:snapshot(),reflection:reflection.value},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="기사문_고쳐쓰기_백업.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}),submitBtn);
+ if(recoverable){changed=true;status.textContent="기기에 임시 보관한 수정본을 복원했어요. 서버에 저장해 주세요.";}saveBtn.disabled=submitBtn.disabled=done;controls.append(saveBtn,button("수정본 백업",()=>{const blob=new Blob([JSON.stringify({fields:snapshot(),reflection:reflection.value},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="기사문_고쳐쓰기_백업.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}),submitBtn);
 }
 const originalEnterApp=enterApp;
 enterApp=function(s,rec){roomToken++;originalEnterApp(s,rec);installRoom();nrEntry()};
 const originalSave=save;
-save=async function(final){const ok=await originalSave(final);if(ok&&final&&submitted){installRoom();nrEntry()}return ok};
+save=async function(final){const ok=await originalSave(final);if(ok&&final&&submitted){installRoom();nrEntry();$("revisionRoom")?.scrollIntoView({behavior:"smooth",block:"start"})}return ok};
 const originalTeacherView=teacherView;
 let teacherRoomToken=0;
 teacherView=async function(no){
- const token=++teacherRoomToken;await originalTeacherView(no);if(token!==teacherRoomToken)return;
+ const token=++teacherRoomToken;await originalTeacherView(no);if(token!==teacherRoomToken)return;const selected=teacherRecords.find(s=>Number(s.student_no)===Number(no));if(selected?.status!=="submitted")return;
  const root=make("section",undefined,"card panel");$("teacherDetail").append(root);root.append(make("h3","교과서 247쪽 · 개별 고쳐쓰기 피드백"));
  const msg=make("p","피드백을 조회하는 중…","notice");root.append(msg);
  const credential={studentNo:no,teacherPass:$("teacherKey").value.trim()};
