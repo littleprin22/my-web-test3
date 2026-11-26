@@ -102,12 +102,25 @@ const apply=button("내가 나눈 문단을 수정본에 반영",()=>{if(!lines.
 }
 function nrChecklist(root){const mod=nrModule("마지막 기자 점검","교과서 247쪽의 네 가지 기준을 스스로 확인하고, 사실과 문단도 한 번 더 점검하세요.");const boxes=[...rubric,"날짜·장소·수치·인용을 실제 자료로 확인했어요.","같은 중심 내용끼리 묶고 내용이 바뀌면 문단을 나눴어요.","사진이나 그림을 활용했다면 출처를 확인했어요."].map(s=>{const l=make("label"),cb=make("input");cb.type="checkbox";l.style.display="block";l.append(cb,document.createTextNode(" "+s));mod.append(l);return cb});root.append(mod);return boxes}
 
+
 function nrVideo(root){
  const card=make("section",undefined,"nr-video");
- card.append(make("h3","▶ 3분 영상 복습 · 기사문 작성법"),make("p","영상에서 표제, 전문(첫 문단), 본문, 육하원칙을 확인해요."),make("p","MAK 나눔터 · 10분 22초~12분 48초 시청 (약 2분 26초). 이어폰을 사용하고, 다 본 뒤 원래 학습지 탭으로 돌아오세요."));
+ const mp4="https://github.com/kor-sped/materials-site/releases/download/videos-v2/gen-kor-6-2-5-v1-720p.mp4";
+ const yt="https://www.youtube.com/watch?v=h3HPLf9L4z0&t=622s";
+ card.append(make("h3","▶ 3분 영상 복습 · 기사문 작성법"),make("p","표제·전문·본문·육하원칙을 확인해요. 10분 22초~12분 48초 (2분 26초), 이어폰을 사용하세요."));
+ const stage=make("div");const status=make("p","재생 버튼을 누르면 학습지에서 바로 영상을 볼 수 있어요.","small");status.setAttribute("role","status");
+ const btn=(label,cls,fn)=>{const b=make("button",label,cls);b.type="button";b.addEventListener("click",fn);return b};
  const link=(label,href,cls)=>{const a=make("a",label,cls);a.href=href;a.target="_blank";a.rel="noopener noreferrer";return a};
- card.append(link("▶ 기사문 복습 영상 보기","https://kor-sped.github.io/materials-site/%EC%98%81%EC%83%81/gen-kor-6-2-5-v1.html","nr-video-main"),link("대체 유튜브 영상 보기","https://www.youtube.com/watch?v=AQLbPzDkM-k","nr-video-alt"),make("p","영상에서 배운 내용을 내 기사문에 적용해 보세요. 중심 내용이 바뀌면 새로운 문단을 시작해요."));
- root.append(card);
+ const clear=()=>{document.querySelectorAll(".nr-video video").forEach(v=>v.pause());stage.replaceChildren()};
+ const playMp4=()=>{clear();const v=document.createElement("video");v.controls=true;v.playsInline=true;v.preload="metadata";v.setAttribute("aria-label","기사문 작성법 MP4 영상");v.style.cssText="width:100%;max-height:60vh;display:block;background:#122320;border-radius:12px;margin-top:12px";stage.append(v);
+ status.textContent="MP4 영상 연결 중입니다. 재생이 안 되면 아래 유튜브 재생을 선택하세요.";
+ v.addEventListener("loadedmetadata",()=>{if(v.duration>622&&v.currentTime<621){try{v.currentTime=622}catch(e){}}status.textContent="기사문 구간부터 시청하세요. 12분 48초에 자동으로 멈춥니다.";v.play().catch(()=>{status.textContent="영상의 ▶ 버튼을 눌러 재생하세요."})},{once:true});
+ v.addEventListener("timeupdate",()=>{if(v.currentTime>=768&&!v.paused){v.pause();status.textContent="복습 완료! 이제 나의 기사문을 작성하거나 고쳐 써요."}});
+ v.addEventListener("error",()=>{status.textContent="MP4 연결이 차단되었거나 실패했습니다. 유튜브 재생 또는 직접 열기를 이용하세요."});
+ v.src=mp4+"#t=622,768";v.load();};
+ const playYouTube=()=>{clear();const f=document.createElement("iframe");f.src="https://www.youtube-nocookie.com/embed/h3HPLf9L4z0?start=622&end=768&rel=0&autoplay=1&cc_lang_pref=ko";f.title="기사문 작성법 영상";f.allow="accelerometer; autoplay; encrypted-media; picture-in-picture; fullscreen";f.allowFullscreen=true;f.style.cssText="width:100%;aspect-ratio:16/9;border:0;border-radius:12px;margin-top:12px";stage.append(f);status.textContent="유튜브 화면이 차단되면 MP4 재생이나 직접 열기를 사용하세요."};
+ card.append(btn("▶ MP4 영상 바로 재생","primary",playMp4),btn("유튜브로 학습지 안에서 재생","",playYouTube),stage,status,link("MP4 파일 직접 열기",mp4,"nr-video-alt"),link("유튜브 직접 열기",yt,"nr-video-alt"));
+ const backup=make("details");backup.append(make("summary","영상 재생이 안 될 때 · 핵심 복습"),make("p","표제: 기사 내용을 짧고 명확하게 나타내요."),make("p","전문: 누가, 언제, 어디서, 무엇을, 어떻게, 왜 했는지 핵심을 요약해요."),make("p","본문: 중심 내용이 달라지는 곳에서 문단을 나누고 확인한 사실을 자세히 설명해요."));card.append(backup);root.append(card);
 }
 
 function nrEntry(){$("newsroomMission")?.remove();if(!session)return;const root=make("section",undefined,"nr-banner");root.id="newsroomMission";$("student").prepend(root);const started=fdefs.some(d=>article.fields[d.id]?.text?.trim()||article.fields[d.id]?.ink);root.append(make("h2",submitted?"어린왕자 뉴스룸 · 나의 편집실":started?"지난번 기사문 이어 쓰기":"오늘은 어린이 취재 기자!"),make("p",submitted?"첫 기사문을 제출했어요. 이제 독자의 눈으로 읽고 고쳐 써 봐요.":started?"저장된 글을 이어서 완성한 뒤 제출하세요.":"취재 메모부터 하나씩 완성해 보세요."));nrTrack(root,submitted?2:started?1:0);nrVideo(root);if(submitted){root.append(button("맞춤형 고쳐쓰기 시작",()=>{$("revisionRoom")?.scrollIntoView({behavior:"smooth"});$("revisionRoom")?.querySelector("button")?.click()},"primary"))}else{const details=make("details");details.append(make("summary","글쓰기 도움 및 문단 미션 (필요할 때 열기)"));nrWritingHelp(details);nrTrainer(details);root.append(details)}}
@@ -182,6 +195,7 @@ teacherView=async function(no){
  }catch(e){msg.textContent=e.message}
 };
 
+nrVideo($('login'));
 window.addEventListener('beforeunload',()=>{if(session)store()});
 })();
 </script></body></html>
