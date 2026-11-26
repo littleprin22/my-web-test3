@@ -13,6 +13,25 @@ async function db(method:string,path:string,data?:unknown,prefer="return=represe
  return await r.json();
 }
 const str=(v:unknown,max=3000)=>typeof v==="string"?v.trim().slice(0,max):"";
+
+// Formative self-check only: no semantic grades, no invented facts or model claims.
+function selfCheck(original:any){
+ const f=original.article?.fields||{};
+ const text=(k:string)=>str(f[k]?.text,8000);
+ const ink=(k:string)=>typeof f[k]?.ink==="string"&&f[k].ink.startsWith("data:image/");
+ const task=(field:string,advice:string,hints:string[])=>({field,advice,hints});
+ const tasks=[];
+ if(!ink("headline")&&(text("headline").length>45||!text("headline")))tasks.push(task("headline","표제가 길거나 비어 있어요. 중요한 사건을 짧게 표현해 보세요.",["가장 중요한 사건은 무엇인가요?","핵심 낱말을 두세 개 골라요.","제목만 읽어도 어떤 사건인지 알 수 있도록 써요."]));
+ if(!ink("lead")&&(!text("lead").match(/\d+\s*월|지난|최근|오늘|어제|올해|이번/)||text("lead").length<30))tasks.push(task("lead","전문에 독자가 궁금해할 핵심 사실을 넣었는지 확인해요. 시간 표현은 예시일 뿐이며 실제 사실을 확인해야 해요.",["누가, 언제, 어디서, 무엇을 했나요?","어떻게, 왜 일어났는지도 필요한 만큼 확인해요.","가장 중요한 사실을 한두 문장으로 요약해요."]));
+ if(!ink("body1")&&!ink("body2")&&!ink("body3"))tasks.push(task("body1","본문의 중심 내용이 달라지는 곳을 직접 찾아 문단을 나누어 보세요. 문단 수는 정답이 아니에요.",["각 문장을 읽고 무엇에 관한 문장인지 말해 봐요.","같은 중심 내용끼리 묶어 봐요.","새로운 활동·결과·반응으로 바뀌면 새 문단을 고려해요."]));
+ if(original.article?.photo&&!str(original.article?.source))tasks.push(task("caption","사진 출처와 사진이 기사에 도움이 되는지 확인해요.",["누가 만든 사진인가요?","기사 내용과 사진이 관련 있나요?","실제 출처를 밝혀요."]));
+ tasks.push(task("body2","직접 확인한 사실과 개인적인 생각을 구별해요.",["직접 본 것과 들은 것은 무엇인가요?","날짜·수치·인용을 확인해요.","확인할 수 없는 사실은 지어내지 않아요."]));
+ return {ratings:[null,null,null,null],praise:"첫 기사문을 제출했어요. 이제 독자의 눈으로 읽고 한 부분씩 발전시켜 봐요.",tasks:tasks.slice(0,3)};
+}
+function studentRow(row:any,original:any){
+ return {...row,feedback:row.published?row.feedback:selfCheck(original),feedback_kind:row.published?"teacher":"selfcheck"};
+}
+
 Deno.serve(async req=>{
  if(req.method==="OPTIONS")return new Response(null,{headers:CORS});
  if(req.method!=="POST")return fail("POST 요청만 지원합니다.",405);
@@ -42,16 +61,20 @@ Deno.serve(async req=>{
  const result=await db("POST","?on_conflict=original_id,original_revision",{original_id:id,original_revision:rev,feedback,published:b.published===true},"resolution=merge-duplicates,return=representation");
  return reply({ok:true,record:result[0]});
  }
- if(!row||!row.published)return reply({ok:true,record:null});
- if(b.action==="load")return reply({ok:true,record:row});
+ if(!row&&b.action==="load"){
+ await db("POST","?on_conflict=original_id,original_revision",{original_id:id,original_revision:rev},"resolution=ignore-duplicates,return=representation");
+ row=(await db("GET",path))[0];
+ }
+ if(!row)return fail("먼저 고쳐쓰기 편집실을 열어 주세요.",409);
+ if(b.action==="load")return reply({ok:true,record:studentRow(row,original)});
  if(row.status==="submitted")return fail("이미 고쳐쓰기를 제출했습니다.",409);
  if(Number(b.version)!==row.version)return fail("다른 기기의 수정 기록이 있습니다. 새로고침 후 다시 확인하세요.",409);
  const fields:Record<string,string>={};
  for(const k of ids){const v=b.fields?.[k];if(typeof v!=="string"||v.length>8000)return fail("글자 수 또는 입력 형식을 확인하세요.");fields[k]=v;}
  const reflection=str(b.reflection,3000);
  if(b.action==="submit"&&(!fields.headline.trim()||!fields.lead.trim()||!fields.body1.trim()||!reflection))return fail("표제·전문·본문과 고쳐 쓴 이유를 작성하세요.");
- const result=await db("PATCH",path+"&version=eq."+row.version+"&status=eq.draft&published=eq.true",{revised_fields:fields,reflection,version:row.version+1,status:b.action==="submit"?"submitted":"draft",updated_at:new Date().toISOString()});
+ const result=await db("PATCH",path+"&version=eq."+row.version+"&status=eq.draft",{revised_fields:fields,reflection,version:row.version+1,status:b.action==="submit"?"submitted":"draft",updated_at:new Date().toISOString()});
  if(result.length!==1)return fail("동시 수정이 감지되었습니다. 현재 글을 복사한 후 다시 불러오세요.",409);
- return reply({ok:true,record:result[0]});
+ return reply({ok:true,record:studentRow(result[0],original)});
  }catch{return fail("서버 작업 실패. 원본은 변경되지 않았습니다.",500);}
 });
